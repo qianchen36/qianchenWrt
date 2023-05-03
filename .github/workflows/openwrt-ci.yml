@@ -10,11 +10,11 @@
 name: OpenWrt-CI
 
 on:
-  push:
-    branches: 
-      - master
-  # schedule:
-  #   - cron: 0 20 * * *
+  # push:
+  #   branches: 
+  #     - master
+  schedule:
+    - cron: 0 20 * * *
   release:
     types: [published]
 
@@ -68,14 +68,31 @@ jobs:
           rm -f ./.config*
           touch ./.config
 
-          #
-          # 在 cat >> .config <<EOF 到 EOF 之间粘贴你的编译配置, 需注意缩进关系
-          # 例如:
+          # 编译配置
 
           cat >> .config <<EOF
           CONFIG_TARGET_IMAGES_GZIP=y
           CONFIG_KERNEL_BUILD_USER="OpenWrt-CI"
           CONFIG_KERNEL_BUILD_DOMAIN="Azure"
+
+          CONFIG_TARGET_rockchip=y
+          CONFIG_TARGET_rockchip_armv8=y
+          CONFIG_TARGET_rockchip_armv8_DEVICE_friendlyarm_nanopi-r4s=y
+          CONFIG_TARGET_OPTIMIZATION="-O3 -pipe -march=armv8-a+crypto+crc -mcpu=cortex-a72.cortex-a53+crypto+crc -mtune=cortex-a72.cortex-a53"
+          
+          CONFIG_DOCKER_OPTIONAL_FEATURES=y
+          CONFIG_PACKAGE_luci-app-cpufreq=y
+          CONFIG_PACKAGE_luci-app-dockerman=y
+          CONFIG_PACKAGE_luci-app-passwall=y
+
+          CONFIG_PACKAGE_kmod-gpu-lima=y
+          CONFIG_PACKAGE_kmod-ath9k-htc=y
+          CONFIG_PACKAGE_kmod-mt76x0u=y
+          CONFIG_PACKAGE_kmod-mt76x2u=y
+          CONFIG_PACKAGE_kmod-r8125=y
+          CONFIG_PACKAGE_kmod-rtw88=y
+          CONFIG_PACKAGE_kmod-rtl8812au-ct=y
+          CONFIG_PACKAGE_rtl8821ce-firmware=y
           EOF
 
           #

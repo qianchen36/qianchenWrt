@@ -1,2 +1,2 @@
-# qianchenWrt
-An OpenWrt firmware for NnoPi R4s
+# 🎆qianchenWrt✨
+An OpenWrt firmware for FrendlyElec NanoPi R4s
