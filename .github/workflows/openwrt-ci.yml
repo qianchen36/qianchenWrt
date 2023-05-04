@@ -16,8 +16,6 @@ on:
   #     - main
   schedule:
     - cron: 0 20 * * *
-  release:
-    types: [published]
 
 jobs:
 
@@ -27,15 +25,7 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    if: github.event.repository.owner.id == github.event.sender.id
-
     steps:
-
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: main
-
       - name: Space cleanup and Initialization environment
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -51,73 +41,40 @@ jobs:
           sudo -E apt -y autoremove --purge
           sudo -E apt clean
           sudo -E timedatectl set-timezone "Asia/Shanghai"
-
-          # sudo mkdir -p -m 777 /mnt/openwrt/bin /mnt/openwrt/build_dir/host /mnt/openwrt/build_dir/hostpkg /mnt/openwrt/dl /mnt/openwrt/feeds /mnt/openwrt/staging_dir
-          # ln -s /mnt/openwrt/bin ./bin
-          # mkdir -p ./build_dir
-          # ln -s -f /mnt/openwrt/build_dir/host ./build_dir/host
-          # ln -s -f /mnt/openwrt/build_dir/hostpkg ./build_dir/hostpkg
-          # ln -s /mnt/openwrt/dl ./dl
-          # ln -s /mnt/openwrt/feeds ./feeds
-          # ln -s /mnt/openwrt/staging_dir ./staging_dir
-
-          df -h
-          cd ./lede
-
+     
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: main
+          
+      - name: Clone upstream
+        run: |
+          git clone https://github.com/coolsnowwolf/lede.git
+      
       - name: Update feeds
         run: |
+          cd ./lede
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
       - name: Generate configuration file
         run: |
-          rm -f ./.config*
-          touch ./.config
-          
-          #
-          # 编译配置
-          #
-
-          cat >> .config <<EOF
-          CONFIG_TARGET_IMAGES_GZIP=y
-          CONFIG_KERNEL_BUILD_USER="OpenWrt-CI"
-          CONFIG_KERNEL_BUILD_DOMAIN="Azure"
-
-          CONFIG_TARGET_rockchip=y
-          CONFIG_TARGET_rockchip_armv8=y
-          CONFIG_TARGET_rockchip_armv8_DEVICE_friendlyarm_nanopi-r4s=y
-          CONFIG_TARGET_OPTIMIZATION="-O3 -pipe -march=armv8-a+crypto+crc -mcpu=cortex-a72.cortex-a53+crypto+crc -mtune=cortex-a72.cortex-a53"
-          
-          CONFIG_DOCKER_OPTIONAL_FEATURES=y
-          CONFIG_PACKAGE_luci-app-cpufreq=y
-          CONFIG_PACKAGE_luci-app-dockerman=y
-          CONFIG_PACKAGE_luci-app-passwall=y
-
-          CONFIG_PACKAGE_kmod-gpu-lima=y
-          CONFIG_PACKAGE_kmod-ath9k-htc=y
-          CONFIG_PACKAGE_kmod-mt76x0u=y
-          CONFIG_PACKAGE_kmod-mt76x2u=y
-          CONFIG_PACKAGE_kmod-r8125=y
-          CONFIG_PACKAGE_kmod-rtw88=y
-          CONFIG_PACKAGE_kmod-rtl8812au-ct=y
-          CONFIG_PACKAGE_rtl8821ce-firmware=y
-          EOF
-
-          #
-          # ===============================================================
-          # 
+          cp ./.config ./lede
+          cd ./lede
 
           sed -i 's/^[ \t]*//g' ./.config
           make defconfig
 
       - name: Make download
         run: |
+          cd ./lede
           make download -j8 || make download -j1 V=s
           rm -rf $(find ./dl/ -size -1024c)
           df -h
 
       - name: Compile firmware
         run: |
+          cd ./lede
           make -j$(nproc) || make -j1 V=s
           echo "======================="
           echo "Space usage:"
@@ -129,6 +86,7 @@ jobs:
 
       - name: Prepare artifact
         run: |
+          cd ./lede
           mkdir -p ./artifact/firmware
           mkdir -p ./artifact/package
           mkdir -p ./artifact/buildinfo
@@ -138,22 +96,22 @@ jobs:
           cp -rf $(find ./bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") ./artifact/buildinfo/
 
       - name: Deliver buildinfo
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: OpenWrt_buildinfo
-          path: ./artifact/buildinfo/
+          path: ./lede/artifact/buildinfo/
 
       - name: Deliver package
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: OpenWrt_package
-          path: ./artifact/package/
+          path: ./lede/artifact/package/
 
       - name: Deliver firmware
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: OpenWrt_firmware
-          path: ./bin/targets/
+          path: ./lede/bin/targets/
 
       - name: Upload release asset
         if: github.event == 'release'
@@ -161,6 +119,6 @@ jobs:
         with:
           release_name: ${{env.strDate}} 自动发布
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./artifact/firmware/*
+          file: ./lede/artifact/firmware/*
           tag: ${{ github.ref }}
           file_glob: true
